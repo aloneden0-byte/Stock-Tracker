@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב תיק מניות</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1>מעקב תיק המניות שלי</h1>
+    <div class="header-actions">
+      <span id="last-updated" class="last-updated"></span>
+      <button id="refresh-btn" class="btn btn-secondary">🔄 רענן מחירים</button>
+    </div>
+  </header>
+
+  <div id="status-banner" class="status-banner hidden"></div>
+
+  <section class="summary-card" id="summary-card">
+    <div class="summary-item">
+      <span class="summary-label">שווי תיק נוכחי</span>
+      <span class="summary-value" id="summary-value">—</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">סה"כ הושקע</span>
+      <span class="summary-value" id="summary-invested">—</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">רווח / הפסד</span>
+      <span class="summary-value" id="summary-gain">—</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">אחוז תשואה</span>
+      <span class="summary-value" id="summary-percent">—</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>אחזקות</h2>
+    <div id="holdings-list" class="holdings-list"></div>
+  </section>
+
+  <section class="add-purchase-card">
+    <h2>הוספת רכישה</h2>
+    <form id="add-purchase-form" class="add-purchase-form">
+      <div class="form-row">
+        <label for="ticker-input">טיקר</label>
+        <input list="ticker-options" id="ticker-input" placeholder="לדוגמה: QQQ" required autocomplete="off">
+        <datalist id="ticker-options"></datalist>
+      </div>
+      <div class="form-row">
+        <label for="shares-input">כמות מניות שנרכשה</label>
+        <input type="number" id="shares-input" step="0.0001" min="0.0001" placeholder="לדוגמה: 5" required>
+      </div>
+      <div class="form-row">
+        <label for="paid-input">סכום ששולם (₪)</label>
+        <input type="number" id="paid-input" step="0.01" min="0.01" placeholder="לדוגמה: 5000" required>
+      </div>
+      <button type="submit" class="btn btn-primary">הוסף רכישה</button>
+    </form>
+  </section>
+</div>
+
+<template id="holding-template">
+  <div class="holding-card">
+    <div class="holding-header">
+      <span class="holding-ticker"></span>
+      <button class="btn btn-danger btn-remove" title="מחק אחזקה">מחק</button>
+    </div>
+    <div class="holding-body">
+      <div class="holding-row">
+        <span class="field-label">כמות מניות</span>
+        <span class="field-value holding-shares"></span>
+      </div>
+      <div class="holding-row">
+        <span class="field-label">מחיר נוכחי</span>
+        <span class="field-value holding-price"></span>
+      </div>
+      <div class="holding-row">
+        <span class="field-label">שווי כולל</span>
+        <span class="field-value holding-value"></span>
+      </div>
+      <div class="holding-row cost-basis-row">
+        <span class="field-label">עלות רכישה (₪)</span>
+        <span class="field-value">
+          <input type="number" class="cost-basis-input" step="0.01" min="0">
+          <button class="btn btn-small btn-save-cost">שמור</button>
+        </span>
+      </div>
+      <div class="holding-row gain-row">
+        <span class="field-label">רווח / הפסד</span>
+        <span class="field-value holding-gain"></span>
+      </div>
+    </div>
+    <div class="holding-warning hidden">⚠️ יש להזין עלות רכישה כדי לראות רווח/הפסד</div>
+  </div>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

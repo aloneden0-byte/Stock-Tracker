@@ -1,0 +1,282 @@
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --panel-border: #334155;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --accent: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --warning-bg: #78350f;
+  --warning-text: #fde68a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.last-updated {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn:hover {
+  opacity: 0.85;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  background: var(--accent);
+  color: white;
+}
+
+.status-banner {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.status-banner.hidden {
+  display: none;
+}
+
+.status-banner .manual-fallback {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.status-banner input {
+  width: 120px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.summary-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 28px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.summary-value {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.holdings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.holding-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.holding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.holding-ticker {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.holding-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 20px;
+}
+
+.holding-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.field-value {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.cost-basis-row .field-value {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cost-basis-input {
+  width: 110px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.gain-positive {
+  color: var(--green);
+}
+
+.gain-negative {
+  color: var(--red);
+}
+
+.holding-warning {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--warning-text);
+}
+
+.holding-warning.hidden {
+  display: none;
+}
+
+.add-purchase-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.add-purchase-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: end;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 160px;
+}
+
+.form-row label {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.form-row input {
+  padding: 10px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
