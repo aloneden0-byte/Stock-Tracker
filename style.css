@@ -299,6 +299,13 @@ body {
   color: var(--red);
 }
 
+.detail-asof {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  opacity: 0.75;
+}
+
 .range-tabs {
   display: flex;
   gap: 6px;
