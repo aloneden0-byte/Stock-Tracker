@@ -5,10 +5,16 @@
   --hero-grad-2: #1c4430;
   --text: #10151a;
   --text-muted: #6b7686;
-  --green: #17c583;
+  --green: #2fb383;
   --green-soft: #e3f9f0;
-  --red: #ef4444;
+  --red: #e5675f;
   --red-soft: #fdecec;
+  --pastel-mint: #bff2d8;
+  --pastel-gold: #fde3a7;
+  --pastel-sky: #c9e2fb;
+  --pastel-rose: #fbd7dd;
+  --pastel-lilac: #e4dcfa;
+  --pastel-sage: #d5e8d4;
   --border: #e9edeb;
   --radius-lg: 24px;
   --radius-md: 16px;
@@ -195,12 +201,12 @@ body {
   color: var(--text);
 }
 
-.palette-0 { background: #fef3c7; }
-.palette-1 { background: #dbeafe; }
-.palette-2 { background: #fde2e4; }
-.palette-3 { background: #dcfce7; }
-.palette-4 { background: #ede9fe; }
-.palette-combined { background: var(--green); color: #06281a; font-weight: 700; }
+.palette-0 { background: var(--pastel-gold); }
+.palette-1 { background: var(--pastel-sky); }
+.palette-2 { background: var(--pastel-rose); }
+.palette-3 { background: var(--pastel-mint); }
+.palette-4 { background: var(--pastel-lilac); }
+.palette-combined { background: var(--pastel-sage); color: #2d5a3d; font-weight: 700; }
 
 .holding-mini .mini-ticker {
   font-weight: 700;
@@ -523,4 +529,76 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
+}
+
+#app-shell.hidden {
+  display: none;
+}
+
+.pin-gate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--hero-grad-1), var(--hero-grad-2));
+  padding: 20px;
+  z-index: 100;
+}
+
+.pin-gate.hidden {
+  display: none;
+}
+
+.pin-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 36px 28px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.pin-icon {
+  font-size: 2.2rem;
+  margin-bottom: 8px;
+}
+
+.pin-card h1 {
+  font-size: 1.2rem;
+  margin: 0 0 4px;
+}
+
+.pin-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 20px;
+}
+
+.pin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pin-form input {
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.4rem;
+  text-align: center;
+  letter-spacing: 6px;
+}
+
+.pin-error {
+  color: var(--red);
+  font-size: 0.82rem;
+  margin: 14px 0 0;
+}
+
+.pin-error.hidden {
+  display: none;
 }

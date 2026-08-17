@@ -5,8 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מעקב תיק מניות</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b2318">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="התיק שלי">
 </head>
 <body>
+<div id="pin-gate" class="pin-gate">
+  <div class="pin-card">
+    <div class="pin-icon">🔒</div>
+    <h1>התיק שלי</h1>
+    <p class="pin-label">הזן קוד גישה</p>
+    <form id="pin-form" class="pin-form">
+      <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="••••••">
+      <button type="submit" class="btn btn-primary">כניסה</button>
+    </form>
+    <p id="pin-error" class="pin-error hidden">קוד שגוי, נסה שוב</p>
+  </div>
+</div>
+
+<div id="app-shell" class="hidden">
 <div class="app">
   <header class="topbar">
     <h1>התיק שלי</h1>
@@ -143,6 +163,7 @@
     <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
   </div>
 </template>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
 <script src="app.js" defer></script>
