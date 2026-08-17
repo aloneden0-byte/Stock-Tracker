@@ -183,6 +183,7 @@ body {
 .palette-2 { background: #fde2e4; }
 .palette-3 { background: #dcfce7; }
 .palette-4 { background: #ede9fe; }
+.palette-combined { background: var(--green); color: #06281a; font-weight: 700; }
 
 .holding-mini .mini-ticker {
   font-weight: 700;
