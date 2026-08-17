@@ -594,6 +594,13 @@ function renderHoldingsScroll() {
   }
 }
 
+function formatAsOf(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "";
+  return `נכון ל-${date.toLocaleDateString("he-IL", { day: "numeric", month: "short" })} (נתון יומי, לא בזמן אמת)`;
+}
+
 function renderTickerOptions() {
   const datalist = document.getElementById("ticker-options");
   datalist.innerHTML = "";
@@ -645,6 +652,9 @@ function renderDetailPanel() {
     dailyEl.textContent = "";
     dailyEl.className = "detail-daily";
   }
+  document.getElementById("detail-asof").textContent = Array.isArray(history)
+    ? formatAsOf(history[history.length - 1]?.date)
+    : "";
 
   document.getElementById("stat-value").textContent =
     currentValueILS !== null ? ilsFormat(currentValueILS) : "—";
@@ -704,6 +714,9 @@ function renderCombinedDetailPanel() {
     dailyEl.textContent = "";
     dailyEl.className = "detail-daily";
   }
+  document.getElementById("detail-asof").textContent = Array.isArray(combinedHistory)
+    ? formatAsOf(combinedHistory[combinedHistory.length - 1]?.date)
+    : "";
 
   document.getElementById("stat-value").textContent = hasAnyValue ? ilsFormat(totalValue) : "—";
   document.getElementById("stat-cost").textContent = totalInvested ? ilsFormat(totalInvested) : "—";
