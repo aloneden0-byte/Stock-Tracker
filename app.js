@@ -94,13 +94,23 @@ function paletteIndex(ticker) {
 
 // ---------- Market data fetching ----------
 
+async function fetchWithTimeout(url, ms = 6000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchWithCorsFallback(url) {
   try {
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error("bad status");
     return res;
   } catch {
-    const res = await fetch(CORS_PROXY(url));
+    const res = await fetchWithTimeout(CORS_PROXY(url));
     if (!res.ok) throw new Error("proxy bad status");
     return res;
   }
@@ -126,7 +136,7 @@ async function fetchPrices(tickers) {
 }
 
 async function fetchFxRate() {
-  const res = await fetch(FX_URL);
+  const res = await fetchWithTimeout(FX_URL);
   if (!res.ok) throw new Error("fx request failed");
   const data = await res.json();
   const rate = data?.rates?.ILS;
@@ -171,27 +181,33 @@ async function refreshMarketData() {
   let priceError = null;
   let fxError = null;
 
-  if (tickers.length > 0) {
-    try {
-      const fetched = await fetchPrices(tickers);
-      for (const ticker of tickers) {
-        if (fetched[ticker] !== undefined) {
-          prices[ticker] = { usd: fetched[ticker], source: "api" };
-        } else if (!prices[ticker]) {
-          priceError = "לא ניתן היה למצוא מחיר עבור אחד או יותר מהטיקרים.";
-        }
-      }
-    } catch (e) {
-      priceError = "שליפת מחירי המניות מהאינטרנט נכשלה (ייתכן חסימת רשת/CORS).";
-    }
-  }
+  const priceTask =
+    tickers.length > 0
+      ? fetchPrices(tickers)
+          .then((fetched) => {
+            for (const ticker of tickers) {
+              if (fetched[ticker] !== undefined) {
+                prices[ticker] = { usd: fetched[ticker], source: "api" };
+              } else if (!prices[ticker]) {
+                priceError = "לא ניתן היה למצוא מחיר עבור אחד או יותר מהטיקרים.";
+              }
+            }
+          })
+          .catch(() => {
+            priceError = "שליפת מחירי המניות מהאינטרנט נכשלה (ייתכן חסימת רשת/CORS).";
+          })
+      : Promise.resolve();
 
-  try {
-    fxRate = await fetchFxRate();
-    fxSource = "api";
-  } catch (e) {
-    fxError = "שליפת שער הדולר-שקל נכשלה (ייתכן חסימת רשת/CORS).";
-  }
+  const fxTask = fetchFxRate()
+    .then((rate) => {
+      fxRate = rate;
+      fxSource = "api";
+    })
+    .catch(() => {
+      fxError = "שליפת שער הדולר-שקל נכשלה (ייתכן חסימת רשת/CORS).";
+    });
+
+  await Promise.all([priceTask, fxTask]);
 
   lastBannerMessages = [priceError, fxError].filter(Boolean);
   if (lastBannerMessages.length > 0) {
@@ -354,6 +370,9 @@ function renderHero() {
     const arrow = gain >= 0 ? "▲" : "▼";
     changeEl.textContent = `${arrow} ${ilsFormat(gain)} (${percentFormat(percent)})`;
     changeEl.className = "hero-change " + (gain >= 0 ? "positive" : "negative");
+  } else if (!hasAnyValue) {
+    changeEl.textContent = "טוען מחירים...";
+    changeEl.className = "hero-change";
   } else {
     changeEl.textContent = "יש להזין עלות רכישה לכל אחזקה";
     changeEl.className = "hero-change";
@@ -413,7 +432,7 @@ function renderHoldingsScroll() {
       changeEl.textContent = percentFormat(gainPercent);
       changeEl.className = "mini-change " + (gainPercent >= 0 ? "positive" : "negative");
     } else {
-      changeEl.textContent = "הזן עלות רכישה";
+      changeEl.textContent = currentValueILS === null ? "טוען..." : "הזן עלות רכישה";
       changeEl.className = "mini-change";
     }
 
