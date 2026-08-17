@@ -10,7 +10,10 @@
 <div class="app">
   <header class="topbar">
     <h1>התיק שלי</h1>
-    <button id="refresh-btn" class="icon-btn" title="רענן מחירים">⟳</button>
+    <div class="header-actions">
+      <button id="settings-btn" class="icon-btn" title="הגדרות מקור נתונים">⚙️</button>
+      <button id="refresh-btn" class="icon-btn" title="רענן מחירים">⟳</button>
+    </div>
   </header>
 
   <div id="status-banner" class="status-banner hidden"></div>
@@ -105,6 +108,28 @@
         <input type="number" id="paid-input" step="0.01" min="0.01" placeholder="לדוגמה: 5000" required>
       </div>
       <button type="submit" class="btn btn-primary">הוסף רכישה</button>
+    </form>
+  </div>
+</div>
+
+<div id="settings-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>מקור נתוני מחירים</h2>
+      <button id="settings-modal-close" class="icon-btn">✕</button>
+    </div>
+    <p class="settings-explainer">
+      כברירת מחדל האפליקציה מנסה לשלוף מחירים בלי מפתח, אבל זה לא תמיד אמין.
+      לשליפה יציבה, הירשם בחינם (בלי כרטיס אשראי) ב-
+      <a href="https://twelvedata.com" target="_blank" rel="noopener">twelvedata.com</a>
+      וקבל מפתח API, ואז הדבק אותו כאן.
+    </p>
+    <form id="settings-form" class="add-purchase-form">
+      <div class="form-row">
+        <label for="api-key-input">מפתח API של Twelve Data</label>
+        <input id="api-key-input" placeholder="הדבק כאן את המפתח" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary">שמור</button>
     </form>
   </div>
 </div>

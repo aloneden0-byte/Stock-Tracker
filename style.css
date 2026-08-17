@@ -62,6 +62,23 @@ body {
   opacity: 0.8;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-explainer {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.settings-explainer a {
+  color: var(--green);
+  font-weight: 600;
+}
+
 .status-banner {
   background: #fff7e6;
   color: #92610c;
