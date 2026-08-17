@@ -8,42 +8,88 @@
 </head>
 <body>
 <div class="app">
-  <header class="app-header">
-    <h1>מעקב תיק המניות שלי</h1>
-    <div class="header-actions">
-      <span id="last-updated" class="last-updated"></span>
-      <button id="refresh-btn" class="btn btn-secondary">🔄 רענן מחירים</button>
-    </div>
+  <header class="topbar">
+    <h1>התיק שלי</h1>
+    <button id="refresh-btn" class="icon-btn" title="רענן מחירים">⟳</button>
   </header>
 
   <div id="status-banner" class="status-banner hidden"></div>
 
-  <section class="summary-card" id="summary-card">
-    <div class="summary-item">
-      <span class="summary-label">שווי תיק נוכחי</span>
-      <span class="summary-value" id="summary-value">—</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">סה"כ הושקע</span>
-      <span class="summary-value" id="summary-invested">—</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">רווח / הפסד</span>
-      <span class="summary-value" id="summary-gain">—</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">אחוז תשואה</span>
-      <span class="summary-value" id="summary-percent">—</span>
-    </div>
+  <section class="hero-card" id="hero-card">
+    <div class="hero-label">שווי תיק נוכחי</div>
+    <div class="hero-value" id="hero-value">—</div>
+    <div class="hero-change" id="hero-change">—</div>
+    <div class="hero-meta" id="last-updated"></div>
   </section>
 
-  <section>
-    <h2>אחזקות</h2>
-    <div id="holdings-list" class="holdings-list"></div>
-  </section>
+  <section class="holdings-scroll" id="holdings-scroll"></section>
 
-  <section class="add-purchase-card">
-    <h2>הוספת רכישה</h2>
+  <section class="detail-panel" id="detail-panel">
+    <div id="detail-empty" class="detail-empty hidden">אין אחזקות בתיק עדיין. הוסף רכישה כדי להתחיל.</div>
+
+    <div id="detail-content">
+      <div class="detail-ticker-row">
+        <div>
+          <div class="detail-ticker" id="detail-ticker">—</div>
+          <div class="detail-shares" id="detail-shares">—</div>
+        </div>
+        <div class="detail-price-block">
+          <div class="detail-price" id="detail-price">—</div>
+          <div class="detail-daily" id="detail-daily">—</div>
+        </div>
+      </div>
+
+      <div class="range-tabs" id="range-tabs">
+        <button data-range="1M">1M</button>
+        <button data-range="3M">3M</button>
+        <button data-range="6M">6M</button>
+        <button data-range="1Y" class="active">1Y</button>
+        <button data-range="ALL">הכל</button>
+      </div>
+
+      <div class="range-change" id="range-change"></div>
+
+      <div class="chart-wrap">
+        <canvas id="price-chart"></canvas>
+        <div id="chart-error" class="chart-error hidden">לא ניתן לטעון גרף היסטורי כרגע</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat">
+          <span class="stat-label">שווי אחזקה</span>
+          <span class="stat-value" id="stat-value">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">עלות רכישה</span>
+          <span class="stat-value" id="stat-cost">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">רווח / הפסד</span>
+          <span class="stat-value" id="stat-gain">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">תשואה</span>
+          <span class="stat-value" id="stat-percent">—</span>
+        </div>
+      </div>
+
+      <div class="cost-edit-row">
+        <input type="number" id="cost-basis-input" step="0.01" min="0" placeholder="עדכן עלות רכישה (₪)">
+        <button id="save-cost-btn" class="btn-small">שמור</button>
+      </div>
+      <button id="remove-holding-btn" class="link-danger">הסר אחזקה מהתיק</button>
+    </div>
+  </section>
+</div>
+
+<button id="fab-add" class="fab" title="הוספת רכישה">+</button>
+
+<div id="add-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>הוספת רכישה</h2>
+      <button id="modal-close" class="icon-btn">✕</button>
+    </div>
     <form id="add-purchase-form" class="add-purchase-form">
       <div class="form-row">
         <label for="ticker-input">טיקר</label>
@@ -60,44 +106,20 @@
       </div>
       <button type="submit" class="btn btn-primary">הוסף רכישה</button>
     </form>
-  </section>
+  </div>
 </div>
 
-<template id="holding-template">
-  <div class="holding-card">
-    <div class="holding-header">
-      <span class="holding-ticker"></span>
-      <button class="btn btn-danger btn-remove" title="מחק אחזקה">מחק</button>
-    </div>
-    <div class="holding-body">
-      <div class="holding-row">
-        <span class="field-label">כמות מניות</span>
-        <span class="field-value holding-shares"></span>
-      </div>
-      <div class="holding-row">
-        <span class="field-label">מחיר נוכחי</span>
-        <span class="field-value holding-price"></span>
-      </div>
-      <div class="holding-row">
-        <span class="field-label">שווי כולל</span>
-        <span class="field-value holding-value"></span>
-      </div>
-      <div class="holding-row cost-basis-row">
-        <span class="field-label">עלות רכישה (₪)</span>
-        <span class="field-value">
-          <input type="number" class="cost-basis-input" step="0.01" min="0">
-          <button class="btn btn-small btn-save-cost">שמור</button>
-        </span>
-      </div>
-      <div class="holding-row gain-row">
-        <span class="field-label">רווח / הפסד</span>
-        <span class="field-value holding-gain"></span>
-      </div>
-    </div>
-    <div class="holding-warning hidden">⚠️ יש להזין עלות רכישה כדי לראות רווח/הפסד</div>
+<template id="holding-mini-template">
+  <div class="holding-mini">
+    <div class="ticker-badge"></div>
+    <div class="mini-ticker"></div>
+    <div class="mini-value"></div>
+    <div class="mini-change"></div>
+    <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
   </div>
 </template>
 
-<script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+<script src="app.js" defer></script>
 </body>
 </html>
