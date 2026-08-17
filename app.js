@@ -1,9 +1,14 @@
 const STORAGE_KEY = "portfolio";
 
+// Known cost basis (ILS) supplied by the user for the initial holdings, split evenly
+// since the exact per-ticker breakdown wasn't available. Used both as the default for
+// new installs and to backfill anyone whose saved state still has costBasisILS: null.
+const KNOWN_COST_BASIS_ILS = { QQQ: 65182.35, VOO: 65182.35 };
+
 const DEFAULT_STATE = {
   holdings: [
-    { ticker: "QQQ", shares: 33.25, costBasisILS: null },
-    { ticker: "VOO", shares: 34.21, costBasisILS: null },
+    { ticker: "QQQ", shares: 33.25, costBasisILS: KNOWN_COST_BASIS_ILS.QQQ },
+    { ticker: "VOO", shares: 34.21, costBasisILS: KNOWN_COST_BASIS_ILS.VOO },
   ],
   lastUpdated: null,
 };
@@ -15,8 +20,21 @@ const STOOQ_QUOTE_URL = (tickers) =>
   `https://stooq.com/q/l/?s=${tickers.map((t) => `${t.toLowerCase()}.us`).join(",")}&f=sd2t2ohlcv&h&e=csv`;
 const STOOQ_HISTORY_URL = (ticker) => `https://stooq.com/q/d/l/?s=${ticker.toLowerCase()}.us&i=d`;
 const FX_URL = "https://open.er-api.com/v6/latest/USD";
+const CORS_PROXY = (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+
+function backfillKnownCostBasis(s) {
+  let changed = false;
+  for (const holding of s.holdings) {
+    if (!holding.costBasisILS && KNOWN_COST_BASIS_ILS[holding.ticker] !== undefined) {
+      holding.costBasisILS = KNOWN_COST_BASIS_ILS[holding.ticker];
+      changed = true;
+    }
+  }
+  return changed;
+}
 
 let state = loadState();
+if (backfillKnownCostBasis(state)) saveState();
 let prices = {}; // ticker -> { usd, source: 'api' | 'manual' }
 let fxRate = null; // ILS per USD
 let fxSource = null; // 'api' | 'manual'
@@ -76,9 +94,20 @@ function paletteIndex(ticker) {
 
 // ---------- Market data fetching ----------
 
+async function fetchWithCorsFallback(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("bad status");
+    return res;
+  } catch {
+    const res = await fetch(CORS_PROXY(url));
+    if (!res.ok) throw new Error("proxy bad status");
+    return res;
+  }
+}
+
 async function fetchPrices(tickers) {
-  const res = await fetch(STOOQ_QUOTE_URL(tickers));
-  if (!res.ok) throw new Error("stooq request failed");
+  const res = await fetchWithCorsFallback(STOOQ_QUOTE_URL(tickers));
   const text = await res.text();
   const lines = text.trim().split("\n");
   const header = lines[0].split(",").map((h) => h.trim().toUpperCase());
@@ -106,8 +135,7 @@ async function fetchFxRate() {
 }
 
 async function fetchHistory(ticker) {
-  const res = await fetch(STOOQ_HISTORY_URL(ticker));
-  if (!res.ok) throw new Error("history request failed");
+  const res = await fetchWithCorsFallback(STOOQ_HISTORY_URL(ticker));
   const text = await res.text();
   const lines = text.trim().split("\n");
   if (lines.length < 2) throw new Error("no history data");
