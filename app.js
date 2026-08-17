@@ -20,7 +20,11 @@ const STOOQ_QUOTE_URL = (tickers) =>
   `https://stooq.com/q/l/?s=${tickers.map((t) => `${t.toLowerCase()}.us`).join(",")}&f=sd2t2ohlcv&h&e=csv`;
 const STOOQ_HISTORY_URL = (ticker) => `https://stooq.com/q/d/l/?s=${ticker.toLowerCase()}.us&i=d`;
 const FX_URL = "https://open.er-api.com/v6/latest/USD";
-const CORS_PROXY = (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+const CORS_PROXIES = [
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+];
+const COMBINED_KEY = "__PORTFOLIO__";
 
 function backfillKnownCostBasis(s) {
   let changed = false;
@@ -110,9 +114,15 @@ async function fetchWithCorsFallback(url) {
     if (!res.ok) throw new Error("bad status");
     return res;
   } catch {
-    const res = await fetchWithTimeout(CORS_PROXY(url));
-    if (!res.ok) throw new Error("proxy bad status");
-    return res;
+    for (const buildProxyUrl of CORS_PROXIES) {
+      try {
+        const res = await fetchWithTimeout(buildProxyUrl(url));
+        if (res.ok) return res;
+      } catch {
+        // try the next proxy
+      }
+    }
+    throw new Error("direct fetch and all CORS proxies failed");
   }
 }
 
@@ -328,22 +338,7 @@ function filterRange(history, range) {
   return filtered.length >= 2 ? filtered : history.slice(-2);
 }
 
-// ---------- Rendering ----------
-
-function render() {
-  if (selectedTicker && !state.holdings.find((h) => h.ticker === selectedTicker)) {
-    selectedTicker = state.holdings[0] ? state.holdings[0].ticker : null;
-  }
-  if (!selectedTicker && state.holdings[0]) {
-    selectedTicker = state.holdings[0].ticker;
-  }
-  renderHero();
-  renderHoldingsScroll();
-  renderTickerOptions();
-  renderDetailPanel();
-}
-
-function renderHero() {
+function computePortfolioTotals() {
   let totalValue = 0;
   let totalInvested = 0;
   let hasAnyValue = false;
@@ -361,15 +356,72 @@ function renderHero() {
     }
   }
 
+  let gainILS = null;
+  let gainPercent = null;
+  if (hasAnyValue && hasAnyCostBasis) {
+    gainILS = totalValue - totalInvested;
+    gainPercent = (gainILS / totalInvested) * 100;
+  }
+
+  return { totalValue, totalInvested, hasAnyValue, hasAnyCostBasis, gainILS, gainPercent };
+}
+
+// Combined USD value of the whole portfolio over time, for dates where every
+// holding with cached history has a data point (keeps the line consistent
+// instead of dipping when only some tickers have data for a given day).
+function getCombinedHistory() {
+  const validHoldings = state.holdings.filter(
+    (h) => Array.isArray(historyCache[h.ticker]) && historyCache[h.ticker].length > 0
+  );
+  if (validHoldings.length === 0) return null;
+
+  const maps = validHoldings.map((h) => ({
+    holding: h,
+    byDate: new Map(historyCache[h.ticker].map((p) => [p.date, p.close])),
+  }));
+
+  const commonDates = [...maps[0].byDate.keys()]
+    .filter((date) => maps.every((m) => m.byDate.has(date)))
+    .sort();
+
+  if (commonDates.length === 0) return null;
+
+  return commonDates.map((date) => ({
+    date,
+    close: maps.reduce((sum, m) => sum + m.holding.shares * m.byDate.get(date), 0),
+  }));
+}
+
+// ---------- Rendering ----------
+
+function isValidSelection(ticker) {
+  if (ticker === COMBINED_KEY) return state.holdings.length > 1;
+  return !!state.holdings.find((h) => h.ticker === ticker);
+}
+
+function render() {
+  if (selectedTicker && !isValidSelection(selectedTicker)) {
+    selectedTicker = state.holdings[0] ? state.holdings[0].ticker : null;
+  }
+  if (!selectedTicker && state.holdings[0]) {
+    selectedTicker = state.holdings[0].ticker;
+  }
+  renderHero();
+  renderHoldingsScroll();
+  renderTickerOptions();
+  renderDetailPanel();
+}
+
+function renderHero() {
+  const { totalValue, hasAnyValue, gainILS, gainPercent } = computePortfolioTotals();
+
   document.getElementById("hero-value").textContent = hasAnyValue ? ilsFormat(totalValue) : "—";
 
   const changeEl = document.getElementById("hero-change");
-  if (hasAnyValue && hasAnyCostBasis) {
-    const gain = totalValue - totalInvested;
-    const percent = (gain / totalInvested) * 100;
-    const arrow = gain >= 0 ? "▲" : "▼";
-    changeEl.textContent = `${arrow} ${ilsFormat(gain)} (${percentFormat(percent)})`;
-    changeEl.className = "hero-change " + (gain >= 0 ? "positive" : "negative");
+  if (gainILS !== null) {
+    const arrow = gainILS >= 0 ? "▲" : "▼";
+    changeEl.textContent = `${arrow} ${ilsFormat(gainILS)} (${percentFormat(gainPercent)})`;
+    changeEl.className = "hero-change " + (gainILS >= 0 ? "positive" : "negative");
   } else if (!hasAnyValue) {
     changeEl.textContent = "טוען מחירים...";
     changeEl.className = "hero-change";
@@ -411,6 +463,52 @@ function renderHoldingsScroll() {
   const container = document.getElementById("holdings-scroll");
   const template = document.getElementById("holding-mini-template");
   container.innerHTML = "";
+
+  if (state.holdings.length > 1) {
+    const node = template.content.cloneNode(true);
+    const card = node.querySelector(".holding-mini");
+    if (selectedTicker === COMBINED_KEY) card.classList.add("active");
+
+    const badge = node.querySelector(".ticker-badge");
+    badge.classList.add("palette-combined");
+    badge.textContent = "כל";
+
+    node.querySelector(".mini-ticker").textContent = "כל התיק";
+
+    const { totalValue, hasAnyValue, gainPercent } = computePortfolioTotals();
+    node.querySelector(".mini-value").textContent = hasAnyValue ? ilsFormat(totalValue) : "טוען...";
+
+    const changeEl = node.querySelector(".mini-change");
+    if (gainPercent !== null) {
+      changeEl.textContent = percentFormat(gainPercent);
+      changeEl.className = "mini-change " + (gainPercent >= 0 ? "positive" : "negative");
+    } else {
+      changeEl.textContent = hasAnyValue ? "הזן עלות רכישה" : "טוען...";
+      changeEl.className = "mini-change";
+    }
+
+    const combinedHistory = getCombinedHistory();
+    const spark = node.querySelector(".sparkline");
+    const points = buildSparklinePoints(combinedHistory);
+    if (points) {
+      const closes = combinedHistory.slice(-30).map((r) => r.close);
+      const isUp = closes[closes.length - 1] >= closes[0];
+      const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      polyline.setAttribute("points", points);
+      polyline.setAttribute("fill", "none");
+      polyline.setAttribute("stroke", isUp ? "#17c583" : "#ef4444");
+      polyline.setAttribute("stroke-width", "2");
+      spark.appendChild(polyline);
+    }
+
+    card.addEventListener("click", () => {
+      selectedTicker = COMBINED_KEY;
+      renderHoldingsScroll();
+      renderDetailPanel();
+    });
+
+    container.appendChild(node);
+  }
 
   for (const holding of state.holdings) {
     const node = template.content.cloneNode(true);
@@ -473,6 +571,13 @@ function renderTickerOptions() {
 function renderDetailPanel() {
   const empty = document.getElementById("detail-empty");
   const content = document.getElementById("detail-content");
+  const editRow = document.getElementById("cost-basis-input").closest(".cost-edit-row");
+  const removeBtn = document.getElementById("remove-holding-btn");
+
+  if (selectedTicker === COMBINED_KEY) {
+    renderCombinedDetailPanel();
+    return;
+  }
 
   const holding = state.holdings.find((h) => h.ticker === selectedTicker);
   if (!holding) {
@@ -482,6 +587,8 @@ function renderDetailPanel() {
   }
   empty.classList.add("hidden");
   content.style.display = "";
+  editRow.style.display = "";
+  removeBtn.style.display = "";
 
   document.getElementById("detail-ticker").textContent = holding.ticker;
   document.getElementById("detail-shares").textContent = `${holding.shares} מניות`;
@@ -532,11 +639,65 @@ function renderDetailPanel() {
   renderChart(holding.ticker);
 }
 
+function renderCombinedDetailPanel() {
+  const empty = document.getElementById("detail-empty");
+  const content = document.getElementById("detail-content");
+  const editRow = document.getElementById("cost-basis-input").closest(".cost-edit-row");
+  const removeBtn = document.getElementById("remove-holding-btn");
+
+  empty.classList.add("hidden");
+  content.style.display = "";
+  editRow.style.display = "none";
+  removeBtn.style.display = "none";
+
+  document.getElementById("detail-ticker").textContent = "כל התיק";
+  document.getElementById("detail-shares").textContent = `${state.holdings.length} אחזקות`;
+
+  const { totalValue, hasAnyValue, totalInvested, gainILS, gainPercent } = computePortfolioTotals();
+  document.getElementById("detail-price").textContent = hasAnyValue ? ilsFormat(totalValue) : "טוען...";
+
+  const combinedHistory = getCombinedHistory();
+  const dailyEl = document.getElementById("detail-daily");
+  if (Array.isArray(combinedHistory) && combinedHistory.length >= 2) {
+    const last = combinedHistory[combinedHistory.length - 1].close;
+    const prev = combinedHistory[combinedHistory.length - 2].close;
+    const dailyPercent = ((last - prev) / prev) * 100;
+    dailyEl.textContent = `${percentFormat(dailyPercent)} היום`;
+    dailyEl.className = "detail-daily " + (dailyPercent >= 0 ? "positive" : "negative");
+  } else {
+    dailyEl.textContent = "";
+    dailyEl.className = "detail-daily";
+  }
+
+  document.getElementById("stat-value").textContent = hasAnyValue ? ilsFormat(totalValue) : "—";
+  document.getElementById("stat-cost").textContent = totalInvested ? ilsFormat(totalInvested) : "—";
+
+  const gainEl = document.getElementById("stat-gain");
+  const percentEl = document.getElementById("stat-percent");
+  if (gainILS !== null) {
+    gainEl.textContent = ilsFormat(gainILS);
+    percentEl.textContent = percentFormat(gainPercent);
+    gainEl.className = "stat-value " + (gainILS >= 0 ? "positive" : "negative");
+    percentEl.className = "stat-value " + (gainPercent >= 0 ? "positive" : "negative");
+  } else {
+    gainEl.textContent = "—";
+    percentEl.textContent = "—";
+    gainEl.className = "stat-value";
+    percentEl.className = "stat-value";
+  }
+
+  document.querySelectorAll("#range-tabs button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.range === currentRange);
+  });
+
+  renderChart(COMBINED_KEY);
+}
+
 function renderChart(ticker) {
   const canvas = document.getElementById("price-chart");
   const errorEl = document.getElementById("chart-error");
   const rangeChangeEl = document.getElementById("range-change");
-  const history = historyCache[ticker];
+  const history = ticker === COMBINED_KEY ? getCombinedHistory() : historyCache[ticker];
 
   if (chartInstance) {
     chartInstance.destroy();
