@@ -24,6 +24,7 @@ const CORS_PROXIES = [
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
 ];
+const TWELVEDATA_BASE = "https://api.twelvedata.com";
 const COMBINED_KEY = "__PORTFOLIO__";
 
 function backfillKnownCostBasis(s) {
@@ -126,7 +127,27 @@ async function fetchWithCorsFallback(url) {
   }
 }
 
-async function fetchPrices(tickers) {
+async function fetchPricesTwelveData(tickers, apiKey) {
+  const url = `${TWELVEDATA_BASE}/price?symbol=${tickers.join(",")}&apikey=${encodeURIComponent(apiKey)}`;
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) throw new Error("twelvedata price request failed");
+  const data = await res.json();
+  if (data.code && data.code !== 200) throw new Error(data.message || "twelvedata error");
+
+  const result = {};
+  if (tickers.length === 1) {
+    const price = parseFloat(data.price);
+    if (!Number.isNaN(price)) result[tickers[0]] = price;
+  } else {
+    for (const ticker of tickers) {
+      const price = data[ticker] ? parseFloat(data[ticker].price) : NaN;
+      if (!Number.isNaN(price)) result[ticker] = price;
+    }
+  }
+  return result;
+}
+
+async function fetchPricesStooq(tickers) {
   const res = await fetchWithCorsFallback(STOOQ_QUOTE_URL(tickers));
   const text = await res.text();
   const lines = text.trim().split("\n");
@@ -145,6 +166,10 @@ async function fetchPrices(tickers) {
   return result;
 }
 
+function fetchPrices(tickers) {
+  return state.apiKey ? fetchPricesTwelveData(tickers, state.apiKey) : fetchPricesStooq(tickers);
+}
+
 async function fetchFxRate() {
   const res = await fetchWithTimeout(FX_URL);
   if (!res.ok) throw new Error("fx request failed");
@@ -154,7 +179,23 @@ async function fetchFxRate() {
   return rate;
 }
 
-async function fetchHistory(ticker) {
+async function fetchHistoryTwelveData(ticker, apiKey) {
+  const url = `${TWELVEDATA_BASE}/time_series?symbol=${ticker}&interval=1day&outputsize=500&apikey=${encodeURIComponent(apiKey)}`;
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) throw new Error("twelvedata history request failed");
+  const data = await res.json();
+  if (data.status === "error" || !Array.isArray(data.values)) {
+    throw new Error(data.message || "twelvedata history error");
+  }
+  const rows = data.values
+    .map((v) => ({ date: v.datetime, close: parseFloat(v.close) }))
+    .filter((r) => !Number.isNaN(r.close))
+    .reverse(); // API returns newest-first; charts want ascending
+  if (rows.length === 0) throw new Error("no parsable twelvedata rows");
+  return rows;
+}
+
+async function fetchHistoryStooq(ticker) {
   const res = await fetchWithCorsFallback(STOOQ_HISTORY_URL(ticker));
   const text = await res.text();
   const lines = text.trim().split("\n");
@@ -171,6 +212,10 @@ async function fetchHistory(ticker) {
   }
   if (rows.length === 0) throw new Error("no parsable history rows");
   return rows;
+}
+
+function fetchHistory(ticker) {
+  return state.apiKey ? fetchHistoryTwelveData(ticker, state.apiKey) : fetchHistoryStooq(ticker);
 }
 
 async function refreshHistoryFor(tickers) {
@@ -203,8 +248,10 @@ async function refreshMarketData() {
               }
             }
           })
-          .catch(() => {
-            priceError = "שליפת מחירי המניות מהאינטרנט נכשלה (ייתכן חסימת רשת/CORS).";
+          .catch((err) => {
+            priceError = state.apiKey
+              ? `שליפת מחירי המניות מ-Twelve Data נכשלה (${err.message || "שגיאה"}). ודא שהמפתח תקין דרך כפתור ⚙️.`
+              : "שליפת מחירי המניות מהאינטרנט נכשלה (ייתכן חסימת רשת/CORS). כדאי להזין מפתח API דרך כפתור ⚙️ למהימנות גבוהה יותר.";
           })
       : Promise.resolve();
 
@@ -818,6 +865,25 @@ function closeModal() {
   document.getElementById("add-modal").classList.add("hidden");
 }
 
+function openSettingsModal() {
+  document.getElementById("api-key-input").value = state.apiKey || "";
+  document.getElementById("settings-modal").classList.remove("hidden");
+}
+
+function closeSettingsModal() {
+  document.getElementById("settings-modal").classList.add("hidden");
+}
+
+function handleSaveSettings(e) {
+  e.preventDefault();
+  const val = document.getElementById("api-key-input").value.trim();
+  state.apiKey = val || null;
+  saveState();
+  closeSettingsModal();
+  historyCache = {};
+  refreshMarketData();
+}
+
 document.getElementById("add-purchase-form").addEventListener("submit", handleAddPurchase);
 document.getElementById("refresh-btn").addEventListener("click", refreshMarketData);
 document.getElementById("fab-add").addEventListener("click", openModal);
@@ -825,6 +891,13 @@ document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("add-modal").addEventListener("click", (e) => {
   if (e.target.id === "add-modal") closeModal();
 });
+
+document.getElementById("settings-btn").addEventListener("click", openSettingsModal);
+document.getElementById("settings-modal-close").addEventListener("click", closeSettingsModal);
+document.getElementById("settings-modal").addEventListener("click", (e) => {
+  if (e.target.id === "settings-modal") closeSettingsModal();
+});
+document.getElementById("settings-form").addEventListener("submit", handleSaveSettings);
 
 document.getElementById("range-tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-range]");
