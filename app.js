@@ -1,26 +1,17 @@
 const STORAGE_KEY = "portfolio";
 
-// Precise cost basis (ILS) for the initial holdings, derived from the user's actual
-// cost-price-per-share figures (QQQ $577.66, VOO $586.81) proportionally split across
-// the total invested amount they originally reported (13,922.87 ILS gain = 10.68%).
-// Supersedes an earlier 50/50 placeholder split that was used before these figures
-// were available. Used both as the default for new installs and to backfill anyone
-// whose saved state still has costBasisILS: null or the old placeholder value.
-const OLD_PLACEHOLDER_COST_BASIS_ILS = 65182.35;
-const KNOWN_COST_BASIS_ILS = { QQQ: 63812.23, VOO: 66694.59 };
-
-// The user's own free Twelve Data API key, hardcoded at their explicit request after
-// being informed this repo (and therefore this key) is public, so anyone could read
-// and use it against their free daily quota.
-const KNOWN_API_KEY = "6596130510224451ba2ae99a4edaf12b";
-
+// No personal financial data (cost basis, API keys) lives in this file on purpose —
+// this is a public repo served as a static site, so anything hardcoded here is
+// visible to anyone who fetches app.js directly, PIN gate or not. Real values are
+// entered once through the app's UI and saved only in the visiting browser's own
+// localStorage, never committed to source.
 const DEFAULT_STATE = {
   holdings: [
-    { ticker: "QQQ", shares: 33.25, costBasisILS: KNOWN_COST_BASIS_ILS.QQQ },
-    { ticker: "VOO", shares: 34.21, costBasisILS: KNOWN_COST_BASIS_ILS.VOO },
+    { ticker: "QQQ", shares: 33.25, costBasisILS: null },
+    { ticker: "VOO", shares: 34.21, costBasisILS: null },
   ],
   lastUpdated: null,
-  apiKey: KNOWN_API_KEY,
+  apiKey: null,
 };
 
 const RANGE_DAYS = { "1M": 30, "3M": 90, "6M": 182, "1Y": 365 };
@@ -37,27 +28,7 @@ const CORS_PROXIES = [
 const TWELVEDATA_BASE = "https://api.twelvedata.com";
 const COMBINED_KEY = "__PORTFOLIO__";
 
-function backfillDefaults(s) {
-  let changed = false;
-  for (const holding of s.holdings) {
-    const known = KNOWN_COST_BASIS_ILS[holding.ticker];
-    if (known === undefined) continue;
-    const isMissing = !holding.costBasisILS;
-    const isStalePlaceholder = holding.costBasisILS === OLD_PLACEHOLDER_COST_BASIS_ILS;
-    if (isMissing || isStalePlaceholder) {
-      holding.costBasisILS = known;
-      changed = true;
-    }
-  }
-  if (!s.apiKey) {
-    s.apiKey = KNOWN_API_KEY;
-    changed = true;
-  }
-  return changed;
-}
-
 let state = loadState();
-if (backfillDefaults(state)) saveState();
 let prices = {}; // ticker -> { usd, source: 'api' | 'manual' }
 let fxRate = null; // ILS per USD
 let fxSource = null; // 'api' | 'manual'
@@ -561,7 +532,7 @@ function renderHoldingsScroll() {
       const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
       polyline.setAttribute("points", points);
       polyline.setAttribute("fill", "none");
-      polyline.setAttribute("stroke", isUp ? "#17c583" : "#ef4444");
+      polyline.setAttribute("stroke", isUp ? "#2fb383" : "#e5675f");
       polyline.setAttribute("stroke-width", "2");
       spark.appendChild(polyline);
     }
@@ -608,7 +579,7 @@ function renderHoldingsScroll() {
       const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
       polyline.setAttribute("points", points);
       polyline.setAttribute("fill", "none");
-      polyline.setAttribute("stroke", isUp ? "#17c583" : "#ef4444");
+      polyline.setAttribute("stroke", isUp ? "#2fb383" : "#e5675f");
       polyline.setAttribute("stroke-width", "2");
       spark.appendChild(polyline);
     }
@@ -797,7 +768,7 @@ function renderChart(ticker) {
   rangeChangeEl.textContent = `שינוי בטווח: ${percentFormat(periodPercent)}`;
   rangeChangeEl.className = "range-change " + (isUp ? "positive" : "negative");
 
-  const colorBase = isUp ? "23,197,131" : "239,68,68";
+  const colorBase = isUp ? "47,179,131" : "229,103,95";
   const ctx = canvas.getContext("2d");
   const gradient = ctx.createLinearGradient(0, 0, 0, 210);
   gradient.addColorStop(0, `rgba(${colorBase},0.28)`);
@@ -947,5 +918,42 @@ document.getElementById("remove-holding-btn").addEventListener("click", () => {
   }
 });
 
-render();
-refreshMarketData();
+// ---------- Access gate ----------
+// Not real security (anyone who reads this source can see the hash and brute-force a
+// 6-digit PIN trivially offline) — it only blocks someone from casually opening the
+// link and seeing the rendered portfolio. Remembered per-browser via localStorage.
+const PIN_HASH = "7163572aa40b9db75fc080d95f3fd836b580650de00b1e4c4cfc4b2c593792b3";
+const UNLOCK_KEY = "portfolio_unlocked";
+
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function startApp() {
+  document.getElementById("pin-gate").classList.add("hidden");
+  document.getElementById("app-shell").classList.remove("hidden");
+  render();
+  refreshMarketData();
+}
+
+if (localStorage.getItem(UNLOCK_KEY) === "true") {
+  startApp();
+} else {
+  document.getElementById("pin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("pin-input");
+    const hash = await sha256Hex(input.value.trim());
+    if (hash === PIN_HASH) {
+      localStorage.setItem(UNLOCK_KEY, "true");
+      startApp();
+    } else {
+      document.getElementById("pin-error").classList.remove("hidden");
+      input.value = "";
+      input.focus();
+    }
+  });
+}
