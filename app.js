@@ -1,9 +1,18 @@
 const STORAGE_KEY = "portfolio";
 
-// Known cost basis (ILS) supplied by the user for the initial holdings, split evenly
-// since the exact per-ticker breakdown wasn't available. Used both as the default for
-// new installs and to backfill anyone whose saved state still has costBasisILS: null.
-const KNOWN_COST_BASIS_ILS = { QQQ: 65182.35, VOO: 65182.35 };
+// Precise cost basis (ILS) for the initial holdings, derived from the user's actual
+// cost-price-per-share figures (QQQ $577.66, VOO $586.81) proportionally split across
+// the total invested amount they originally reported (13,922.87 ILS gain = 10.68%).
+// Supersedes an earlier 50/50 placeholder split that was used before these figures
+// were available. Used both as the default for new installs and to backfill anyone
+// whose saved state still has costBasisILS: null or the old placeholder value.
+const OLD_PLACEHOLDER_COST_BASIS_ILS = 65182.35;
+const KNOWN_COST_BASIS_ILS = { QQQ: 63812.23, VOO: 66694.59 };
+
+// The user's own free Twelve Data API key, hardcoded at their explicit request after
+// being informed this repo (and therefore this key) is public, so anyone could read
+// and use it against their free daily quota.
+const KNOWN_API_KEY = "6596130510224451ba2ae99a4edaf12b";
 
 const DEFAULT_STATE = {
   holdings: [
@@ -11,6 +20,7 @@ const DEFAULT_STATE = {
     { ticker: "VOO", shares: 34.21, costBasisILS: KNOWN_COST_BASIS_ILS.VOO },
   ],
   lastUpdated: null,
+  apiKey: KNOWN_API_KEY,
 };
 
 const RANGE_DAYS = { "1M": 30, "3M": 90, "6M": 182, "1Y": 365 };
@@ -27,19 +37,27 @@ const CORS_PROXIES = [
 const TWELVEDATA_BASE = "https://api.twelvedata.com";
 const COMBINED_KEY = "__PORTFOLIO__";
 
-function backfillKnownCostBasis(s) {
+function backfillDefaults(s) {
   let changed = false;
   for (const holding of s.holdings) {
-    if (!holding.costBasisILS && KNOWN_COST_BASIS_ILS[holding.ticker] !== undefined) {
-      holding.costBasisILS = KNOWN_COST_BASIS_ILS[holding.ticker];
+    const known = KNOWN_COST_BASIS_ILS[holding.ticker];
+    if (known === undefined) continue;
+    const isMissing = !holding.costBasisILS;
+    const isStalePlaceholder = holding.costBasisILS === OLD_PLACEHOLDER_COST_BASIS_ILS;
+    if (isMissing || isStalePlaceholder) {
+      holding.costBasisILS = known;
       changed = true;
     }
+  }
+  if (!s.apiKey) {
+    s.apiKey = KNOWN_API_KEY;
+    changed = true;
   }
   return changed;
 }
 
 let state = loadState();
-if (backfillKnownCostBasis(state)) saveState();
+if (backfillDefaults(state)) saveState();
 let prices = {}; // ticker -> { usd, source: 'api' | 'manual' }
 let fxRate = null; // ILS per USD
 let fxSource = null; // 'api' | 'manual'
